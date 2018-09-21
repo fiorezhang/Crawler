@@ -1,0 +1,1 @@
+python 8muses.py --clean 1 --hide 0
