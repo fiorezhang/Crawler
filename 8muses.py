@@ -19,6 +19,7 @@ from selenium.common.exceptions import TimeoutException
 UNFINISHED="00000000"
 #ERROR = "99999999"
 ERRLOG = "99999999.log"
+DUPLOG = "77777777.log"
 
 HEADER={'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/34.0.1847.137 Safari/537.36 LBBROWSER'}  
 #PROXIE = {'http':'http://221.0.232.13:61202','https':'https://211.86.50.105:61202'}
@@ -34,12 +35,71 @@ else:
     PATH = '/home/ftp_root/server/temp/Download_8Muses'
     PHANTOMJS_PATH = '/home/phantomjs/bin/phantomjs'
 
+# 417 pcs 12 threads 87s, 18 threads 62s, 24 threads 47s
+#多线程获取图片        
+def fetchImg(imageURLQueue, browser):
+    ret = True
+    urlImgLast = None
+    while True:
+        try:
+            urlpair = imageURLQueue.get_nowait()
+            i = imageURLQueue.qsize()
+            #print("Queue Size "+str(i))
+            img = urlpair[0]
+            filename = urlpair[1]
+        except Exception as e:
+            #print(e) #当queue空时，这里会打印一行空内容
+            break
+        #print("-------- -------- Current Thread: "+threading.currentThread().name+", file: "+filename)
+        
+        timeCurrent = time.strftime("%H:%M:%S", time.localtime())
+        name_jpg = filename.split(os.sep)[-1]
+        threadname = threading.currentThread().name
+        print(" "*30+name_jpg+" "*5+timeCurrent+" ["+threadname+"] "+" "*5+img)  
+        retry = 20
+        timeset = 1
+        urlImg = parseImg(URLROOT+img, browser, retry, timeset, urlImgLast)
+        if urlImg == None:
+            Error = True
+            with open(folder_l2+os.sep+ERRLOG, 'a+') as f:
+                f.write(URLROOT+img+"|"+filename+"\n")
+            ret = False #TODO
+            continue
+        else:
+            urlImgLast = urlImg
+        retry = 10
+        timeset = 2
+        ret = saveImg("https:"+urlImg, filename, retry, timeset)
+        if ret == False:
+            Error = True
+            with open(folder_l2+os.sep+ERRLOG, 'a+') as f:
+                f.write(URLROOT+img+"|"+filename+"\n")
+            ret = False #TODO           
+            continue
+            
+    #print("-------- -------- End Thread: "+threading.currentThread().name+" with: ", ret)
+    return ret
+            
 
+class ImgThread(threading.Thread):
+    def __init__(self, func, args=()):  
+        super(ImgThread,self).__init__()
+        self.func = func
+        self.args = args
+
+    def run(self):  
+        self.result = self.func(*self.args)  
+  
+    def get_result(self):
+        try:
+            return self.result  # 如果子线程不使用join方法，此处可能会报没有self.result的错误
+        except Exception:
+            return None
+    
+    
 
 #获取当前页图片信息并保存
-contentLast = None
-def parseImg(url, browser, retry, timeset):
-    global contentLast
+def parseImg(url, browser, retry, timeset, contentLast):
     #print(url)    
     while retry:
         retry -= 1        
@@ -65,7 +125,7 @@ def parseImg(url, browser, retry, timeset):
         if contents != None:
             content = contents.group(1)
             if content != contentLast:
-                contentLast = content
+                #contentLast = content
                 #print(content)
                 return content
             else:
@@ -238,9 +298,12 @@ def crawler(urlroot, path, threads, hide, clean, fix):
         else:
             print("Dir not exists")    
 
+    browsers = []
     #利用PhantomJS加载网页
-    browser = webdriver.PhantomJS(executable_path=PHANTOMJS_PATH)
-    browser.set_page_load_timeout(30) # 最大等待时间
+    for i in range(threads):
+        browsers.append(webdriver.PhantomJS(executable_path=PHANTOMJS_PATH))
+        browsers[i].set_page_load_timeout(30) # 最大等待时间
+    print("BROWSERS READY")    
 
     #从根节点开始解析网页
     page_l0 = "/comics"
@@ -266,34 +329,57 @@ def crawler(urlroot, path, threads, hide, clean, fix):
                         Error = False
                         mkdir(folder_l2+os.sep+UNFINISHED)
                         imgs_l2 = getAllPictures(urlroot, page_l2)
-                        i = 1000 #用作图片文件名            
+                        i = 1000 #用作图片文件名   
+                        timeLast = time.time()
                         urlImgLast = None
+                        urlQueue = queue.Queue() #多线程时使用，单线程用不上
                         for img in imgs_l2:
                             i = i+1
                             name_jpg = str(i)+'.jpg'
                             if fix == 1 and os.path.exists(folder_l2+os.sep+name_jpg):
                                 continue
-                            timeCurrent = time.strftime("%H:%M:%S", time.localtime())
-                            print(" "*30+name_jpg+" "*5+timeCurrent+" "*5+img)  
-                            #urlpair = [img, folder_l2+os.sep+name_jpg]
-                            retry = 20
-                            timeset = 1
-                            urlImg = parseImg(URLROOT+img, browser, retry, timeset)
-                            if urlImg == None:
-                                Error = True
-                                with open(folder_l2+os.sep+ERRLOG, 'a+') as f:
-                                    f.write(URLROOT+img+"|"+folder_l2+os.sep+name_jpg+"\n")
-                                continue #TODO
-                            retry = 10
-                            timeset = 2
-                            ret = saveImg("https:"+urlImg, folder_l2+os.sep+name_jpg, retry, timeset)
-                            if ret == False:
-                                Error = True
-                                with open(folder_l2+os.sep+ERRLOG, 'a+') as f:
-                                    f.write(URLROOT+img+"|"+folder_l2+os.sep+name_jpg+"\n")
-                                continue #TODO                            
-                        #if Error:
+                            if threads > 1: #多线程，图片信息保存
+                                urlpair = [img, folder_l2+os.sep+name_jpg]
+                                urlQueue.put(urlpair)
+                            else: #单线程，直接完成下载
+                                browser = browsers[0]
+                                timeCurrent = time.strftime("%H:%M:%S", time.localtime())
+                                print(" "*30+name_jpg+" "*5+timeCurrent+" "*5+img)  
+                                retry = 20
+                                timeset = 1
+                                urlImg = parseImg(URLROOT+img, browser, retry, timeset, urlImgLast)
+                                if urlImg == None:
+                                    Error = True
+                                    with open(folder_l2+os.sep+ERRLOG, 'a+') as f:
+                                        f.write(URLROOT+img+"|"+folder_l2+os.sep+name_jpg+"\n")
+                                    continue #TODO
+                                else:
+                                    urlImgLast = urlImg
+                                retry = 10
+                                timeset = 2
+                                ret = saveImg("https:"+urlImg, folder_l2+os.sep+name_jpg, retry, timeset)
+                                if ret == False:
+                                    Error = True
+                                    with open(folder_l2+os.sep+ERRLOG, 'a+') as f:
+                                        f.write(URLROOT+img+"|"+folder_l2+os.sep+name_jpg+"\n")
+                                    continue #TODO           
+                        if threads > 1:
+                            ths = []
+                            for i in range(threads):
+                                t = ImgThread(fetchImg, args=(urlQueue, browsers[i]))
+                                ths.append(t)
+                            for t in ths:
+                                t.start()
+                            for t in ths:
+                                t.join()
+                            for t in ths:
+                                if t.get_result() == False: 
+                                    Error = True
+                        if Error:
+                            print('ERROR')
                         #    mkdir(folder_l2+os.sep+ERROR) 
+                        timeUsed = time.time()-timeLast
+                        print('USED TIME: '+str(round(timeUsed, 2)))
                         rmdir(folder_l2+os.sep+UNFINISHED)#标记已完成  
                     elif ret == False:
                         print('EXIST')
@@ -305,7 +391,8 @@ def crawler(urlroot, path, threads, hide, clean, fix):
             else:
                 print('EXIST')
     #回收浏览器资源
-    browser.quit()
+    for i in range(threads):
+        browsers[i].quit()
         
     return
 
@@ -326,7 +413,7 @@ def fixerrlog(errorlog):
             print(file)
             retry = 40
             timeset = 4
-            urlImg = parseImg(url, browser, retry, timeset)
+            urlImg = parseImg(url, browser, retry, timeset, None)
             if urlImg == None:
                 print("ERROR")
                 result = False
@@ -366,7 +453,7 @@ def clearduplicate():
                                     sizeLast = size
                                     fileLast = filec_2
                                 else:
-                                    hash_last = None
+                                    hash_last = None #文件大小相同时，再通过hash来比对，这个很严格
                                     hash_this = None
                                     with open(path+os.sep+dirc+os.sep+filec+os.sep+fileLast, 'rb') as fp:
                                         hash_last = imagehash.average_hash(Image.open(fp))
@@ -374,8 +461,8 @@ def clearduplicate():
                                         hash_this = imagehash.average_hash(Image.open(fp))
                                     if hash_last == hash_this:    
                                         print("DUPLICATE:    " + path+os.sep+dirc+os.sep+filec+os.sep+" "*5+fileLast+" "*5+filec_2)
-                                        #os.remove(path+os.sep+dirc+os.sep+filec+os.sep+filec_2)
-                                        with open(path+os.sep+dirc+os.sep+filec+os.sep+ERRLOG, 'a+') as f:
+                                        #os.remove(path+os.sep+dirc+os.sep+filec+os.sep+filec_2) TODO:不要删掉了，有可能真的是前后重复，要人工判断
+                                        with open(path+os.sep+dirc+os.sep+filec+os.sep+DUPLOG, 'a+') as f:
                                             f.write(fileLast+" "*10+filec_2+"\n")
 
 def test(path):
