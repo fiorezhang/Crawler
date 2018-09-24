@@ -44,6 +44,7 @@ def parseImg(url, browser, retry, timeset):
             browser.get(url)
         except TimeoutException:
             browser.execute_script('window.stop()')
+            timeset += 1
         source = browser.page_source #获取网页源代码
 
         pattern = re.compile('<div class="photo"(.*?)</div>')
@@ -138,6 +139,10 @@ def getAlbums(url):
             
             pattern = re.compile('<a class="c-tile t-hover" href="(.*?/album/.*?)">')
             items = re.findall(pattern, response)
+
+            for i, item in enumerate(items):
+                item = item.split('"')[-1]
+                items[i] = item
             
             if len(items) == 0:
                 break
@@ -165,6 +170,10 @@ def getPictures(url):
             pattern = re.compile('<a class="c-tile t-hover" href="(.*?/picture/.*?)">')
             items = re.findall(pattern, response)
             
+            for i, item in enumerate(items):
+                item = item.split('"')[-1]
+                items[i] = item
+            
             if len(items) == 0:
                 break
             url_list.extend(items)
@@ -174,6 +183,25 @@ def getPictures(url):
             print(e)
             #break
     return url_list        
+    
+def getAllPictures(urlroot, page):
+    imgs = []
+    imgs += getPictures(urlroot+page)
+    pages = getAlbums(urlroot+page)
+    for page in pages.copy():
+        imgs += getPictures(urlroot+page)
+        print(" "*30+"NEXT LEVEL"+" "*10+page)
+        pages = getAlbums(urlroot+page)
+        for page in pages.copy():
+            imgs += getPictures(urlroot+page)
+            print(" "*40+"NEXT LEVEL"+" "*10+page)
+            pages = getAlbums(urlroot+page)
+            for page in pages.copy():
+                imgs += getPictures(urlroot+page)
+                #print(" "*50+"NEXT LEVEL"+" "*10+page)
+                #pages = getAlbums(urlroot+page)
+    return imgs
+    
     
 #爬虫入口
 def crawler(urlroot, path, threads, hide, clean, fix):
@@ -233,22 +261,7 @@ def crawler(urlroot, path, threads, hide, clean, fix):
                     if (ret == True and fix == 0) or (ret == False and fix == 1):
                         Error = False
                         mkdir(folder_l2+os.sep+UNFINISHED)
-                        imgs_l2 = getPictures(urlroot+page_l2) #取得漫画册每个图片的单独网页，有可能漫画册还有子目录，要再往下一层
-                        if len(imgs_l2) == 0:  #再往下一层，取得的图片网页放到同一个list
-                            print(" "*30+"NEXT LEVEL"+" "*10+page_l2)
-                            pages_l3 = getAlbums(urlroot+page_l2)
-                            for page_l3 in pages_l3:
-                                imgs_l3 = getPictures(urlroot+page_l3)
-                                if len(imgs_l3) == 0:
-                                    print(" "*40+"NEXT LEVEL"+" "*10+page_l3)
-                                    pages_l4 = getAlbums(urlroot+page_l3)
-                                    for page_l4 in pages_l4:
-                                        imgs_l4 = getPictures(urlroot+page_l4)
-                                        imgs_l3 += imgs_l4
-                                imgs_l2 += imgs_l3
-                        if len(imgs_l2) == 0: #还没有图片，报错
-                            Error = True
-                            print('Error get '+page_l2)
+                        imgs_l2 = getAllPictures(urlroot, page_l2)
                         i = 1000 #用作图片文件名            
                         urlImgLast = None
                         for img in imgs_l2:
@@ -256,7 +269,8 @@ def crawler(urlroot, path, threads, hide, clean, fix):
                             name_jpg = str(i)+'.jpg'
                             if fix == 1 and os.path.exists(folder_l2+os.sep+name_jpg):
                                 continue
-                            print(" "*30+name_jpg+" "*10+img)  
+                            timeCurrent = time.strftime("%H:%M:%S", time.localtime())
+                            print(" "*30+name_jpg+" "*5+timeCurrent+" "*5+img)  
                             #urlpair = [img, folder_l2+os.sep+name_jpg]
                             retry = 20
                             timeset = 1
@@ -296,6 +310,8 @@ def fixerrlog(errorlog):
     browser = webdriver.PhantomJS(executable_path=PHANTOMJS_PATH)
     browser.set_page_load_timeout(30) # 最大等待时间
     
+    result = True
+    
     with open(errorlog, 'r') as f:
         lines = f.readlines()
         for line in lines:
@@ -309,15 +325,20 @@ def fixerrlog(errorlog):
             urlImg = parseImg(url, browser, retry, timeset)
             if urlImg == None:
                 print("ERROR")
+                result = False
                 continue
             retry = 20
             timeset = 8
             ret = saveImg("https:"+urlImg, file, retry, timeset)
             if ret == False:
                 print("ERROR")
+                result = False
                 contiune
             print("PASS")
     
+    if result == True:
+        print("ALL PASS")
+        os.remove(errorlog)
     browser.quit()
         
 def clearduplicate():
@@ -341,6 +362,13 @@ def clearduplicate():
                                     print("REMOVE:    " + path+os.sep+dirc+os.sep+filec+os.sep+filec_2)
                                     os.remove(path+os.sep+dirc+os.sep+filec+os.sep+filec_2)
 
+def test(path):
+    if path != "":
+        imgs = getAllPictures(URLROOT, path)
+        for img in imgs:
+            print(img)
+    else:
+        print("EMPTY PATH")
         
 def get_args():
     parser = argparse.ArgumentParser()
@@ -348,6 +376,7 @@ def get_args():
     parser.add_argument("--hide", type=int, default=1)
     parser.add_argument("--clean", type=int, default=0)
     parser.add_argument("--fix", type=int, default=0)
+    parser.add_argument("--test", type=int, default=0)
     parser.add_argument("--errorlog", type=str, default="")
     parser.add_argument("--cleardup", type=int, default=0)
     args = parser.parse_args()
@@ -362,10 +391,14 @@ if __name__ == "__main__":
     HIDE = args.hide
     CLEAN = args.clean
     FIX = args.fix
+    TEST = args.test
     ERRORLOG = args.errorlog
     CLEARDUP = args.cleardup
     
-    if ERRORLOG != "":
+    if TEST == 1:
+        path = input("Test path: ")
+        test(path)
+    elif ERRORLOG != "":
         fixerrlog(ERRORLOG)
     elif CLEARDUP == 1:
         clearduplicate()
