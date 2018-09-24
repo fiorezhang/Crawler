@@ -9,8 +9,12 @@ import time
 import numpy
 import threading
 import queue
+import imagehash
+from PIL import Image
+from PIL import ImageFile
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
+
 
 UNFINISHED="00000000"
 #ERROR = "99999999"
@@ -350,17 +354,29 @@ def clearduplicate():
                 files = os.listdir(path+os.sep+dirc)
                 for filec in files:
                     sizeLast = 0
+                    fileLast = ""
                     if os.path.isdir(path+os.sep+dirc+os.sep+filec):
                         file_2s = os.listdir(path+os.sep+dirc+os.sep+filec) 
-                        file_2s.sort(key= lambda x:int(x[:-4]))
+                        #file_2s.sort(key= lambda x:int(x[:-4])) #按文件名排序
+                        file_2s.sort(key=lambda x: os.path.getsize(os.path.join(path+os.sep+dirc+os.sep+filec, x))) #按文件大小排序
                         for filec_2 in file_2s:
                             if os.path.splitext(filec_2)[1] == '.jpg':
                                 size = os.path.getsize(path+os.sep+dirc+os.sep+filec+os.sep+filec_2)
-                                if size != sizeLast:
+                                if size != sizeLast :
                                     sizeLast = size
+                                    fileLast = filec_2
                                 else:
-                                    print("REMOVE:    " + path+os.sep+dirc+os.sep+filec+os.sep+filec_2)
-                                    os.remove(path+os.sep+dirc+os.sep+filec+os.sep+filec_2)
+                                    hash_last = None
+                                    hash_this = None
+                                    with open(path+os.sep+dirc+os.sep+filec+os.sep+fileLast, 'rb') as fp:
+                                        hash_last = imagehash.average_hash(Image.open(fp))
+                                    with open(path+os.sep+dirc+os.sep+filec+os.sep+filec_2, 'rb') as fp:
+                                        hash_this = imagehash.average_hash(Image.open(fp))
+                                    if hash_last == hash_this:    
+                                        print("DUPLICATE:    " + path+os.sep+dirc+os.sep+filec+os.sep+" "*5+fileLast+" "*5+filec_2)
+                                        #os.remove(path+os.sep+dirc+os.sep+filec+os.sep+filec_2)
+                                        with open(path+os.sep+dirc+os.sep+filec+os.sep+ERRLOG, 'a+') as f:
+                                            f.write(fileLast+" "*10+filec_2+"\n")
 
 def test(path):
     if path != "":
