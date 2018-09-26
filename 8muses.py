@@ -32,7 +32,7 @@ URLROOT = 'https://www.8muses.com'
 
 if 'Windows' in platform.platform():
     PATH = 'F:/2017/TMP/Download_8Muses'
-    PHANTOMJS_PATH = r'C:\Users\FioreZ\.anaconda\phantomjs-2.1.1-windows\bin\phantomjs.exe'
+    PHANTOMJS_PATH = 'C:/Users/FioreZ/.anaconda/phantomjs-2.1.1-windows/bin/phantomjs.exe'
 else:
     PATH = '/home/ftp_root/server/temp/Download_8Muses'
     PHANTOMJS_PATH = '/home/phantomjs/bin/phantomjs'
@@ -331,6 +331,9 @@ def crawler(urlroot, path, threads, hide, clean, fix):
         browsers[i].set_page_load_timeout(30) # 最大等待时间
     print("BROWSERS READY")    
 
+    if fix == 1:
+        checkmiss()
+    
     #从根节点开始解析网页
     page_l0 = "/comics"
     pages_l1 = getAlbums(urlroot+page_l0) #取得第一层，大的漫画系列
@@ -341,9 +344,24 @@ def crawler(urlroot, path, threads, hide, clean, fix):
             name_l1 = page_l1[len(str_l1):]
             print(" "*10+name_l1)
             folder_l1 = path+os.sep+validateTitle(name_l1)
+            pages_l2 = getAlbums(urlroot+page_l1) #取得第二层，每一个漫画册
+            if fix == 0 and os.path.exists(folder_l1):
+                if os.path.exists(folder_l1+os.sep+UNFINISHED):
+                    rmdir(folder_l1+os.sep+UNFINISHED)
+                if os.path.exists(folder_l1+os.sep+UNFIXED):
+                    rmdir(folder_l1+os.sep+UNFIXED)
+                print(" "*10+"Folders expected: ", len(pages_l2))
+                print(" "*10+"Folders existed:  ", len(os.listdir(folder_l1)))
+                if len(pages_l2) == len(os.listdir(folder_l1)):
+                    print("ALREADY FINISHED")
+                    continue
+                else:
+                    print("MARK UNFINISHED")
+                    mkdir(folder_l1+os.sep+UNFINISHED)
             if (fix == 0 and (mkdir(folder_l1) or os.path.exists(folder_l1+os.sep+UNFINISHED))) or (fix == 1 and os.path.exists(folder_l1+os.sep+UNFIXED)): #fix模式下，仅仅查看存在的一级目录
-                mkdir(folder_l1+os.sep+UNFINISHED)
-                pages_l2 = getAlbums(urlroot+page_l1) #取得第二层，每一个漫画册
+                if not os.path.exists(folder_l1+os.sep+UNFINISHED):
+                    print("MARK UNFINISHED")
+                    mkdir(folder_l1+os.sep+UNFINISHED)
                 for page_l2 in pages_l2:
                     print("-"*20+page_l2)
                     str_l2 = str_l1+name_l1+"/"
@@ -454,8 +472,10 @@ def crawler(urlroot, path, threads, hide, clean, fix):
                         rmdir(folder_l2)
                         print('IGNORE IN FIX')
                 if fix == 0: #在fix模式下，不移除一级目录的完成标志，因为未建立的二级目录被跳过去了。
+                    print("CLEAR UNFINISHED")
                     rmdir(folder_l1+os.sep+UNFINISHED)#标记已完成      
                 else:
+                    print("CLEAR UNFIXED")
                     rmdir(folder_l1+os.sep+UNFIXED)#标记已fix
             else:
                 if fix == 0:
@@ -541,8 +561,15 @@ def checkmiss():
     path = PATH
     if os.path.exists(path):
         dirs = os.listdir(path)
-        for dirc in dirs:
-            test2(dirc)
+        for dir in dirs:
+            for sub in os.listdir(PATH+os.sep+dir): #得到二级目录
+                if sub == UNFINISHED or sub == UNFIXED: 
+                    continue
+                files = os.listdir(PATH+os.sep+dir+os.sep+sub)
+                files.sort(key= lambda x:int(x[:-4]))
+                if len(files) == 0 or len(files) != int(files[-1].split('.')[0]) - FILENAME:
+                    print("MARK UNFIXED"+" "*10+dir+'/'+sub)
+                    mkdir(PATH+os.sep+dir+os.sep+UNFIXED)
                                             
 def test1(path):
     if path != "":
@@ -572,9 +599,9 @@ def test3(path, dir):
     for img in imgs:
         i = i+1
         name_jpg = str(i)+'.jpg'
-        if os.path.exists(PATH+os.sep+dir+os.sep+name_jpg): #fix模式下，跳过已经存在的文件
+        if os.path.exists(PATH+'/'+dir+'/'+name_jpg): #fix模式下，跳过已经存在的文件
             continue
-        urlpair = [img, PATH+os.sep+dir+os.sep+name_jpg]
+        urlpair = [img, PATH+'/'+dir+'/'+name_jpg]
         urlQueue.put(urlpair)    
         #print(name_jpg)
     fetchImg(urlQueue, browser)    
