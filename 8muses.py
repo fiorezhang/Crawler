@@ -438,9 +438,7 @@ def crawler(urlroot, path, threads, hide, clean, fix):
                         if Error:
                             print('ERROR')
                         #    mkdir(folder_l2+os.sep+ERROR) 
-                        timeUsed = time.time()-timeLast
-                        print('USED TIME: '+str(round(timeUsed, 2)))
-                        
+                       
                         # 马上检查一遍是否有遗漏文件
                         files = os.listdir(folder_l2)
                         files.sort(key= lambda x:int(x[:-4]))
@@ -464,7 +462,9 @@ def crawler(urlroot, path, threads, hide, clean, fix):
                                 print('ERROR')
                         #可能仍然有未完成文件，且不会清理error.log，需要手动干预        
                         # 马上检查一遍是否有遗漏文件
-                        
+
+                        timeUsed = time.time()-timeLast
+                        print('USED TIME: '+str(round(timeUsed, 2)))
                         rmdir(folder_l2+os.sep+UNFINISHED)#标记已完成  
                     elif ret == False: #fix == 0
                         print('EXIST')
