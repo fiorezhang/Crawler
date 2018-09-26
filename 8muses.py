@@ -97,7 +97,7 @@ def fetchImg(imageURLQueue, browser):
             with open(os.path.dirname(filename)+os.sep+ERRLOG, 'a+') as f:
                     f.write(URLROOT+img+"|"+filename+"\n")
             ret = False
-            continue
+            break #严重错误是无法恢复的，直接退出这个线程
             
     #print("-------- -------- End Thread: "+threading.currentThread().name+" with: ", ret)
     return ret
@@ -357,9 +357,9 @@ def crawler(urlroot, path, threads, hide, clean, fix):
                         imgs_l2 = getAllPictures(urlroot, page_l2)
                         print(" "*20+"Images expected: ", len(imgs_l2))
                         if fix == 1:
-                            print(" "*20+"Images existed:  ", len(os.listdir(folder_l2)))
                             if os.path.exists(folder_l2+os.sep+ERRLOG):
                                 os.remove(folder_l2+os.sep+ERRLOG)
+                            print(" "*20+"Images existed:  ", len(os.listdir(folder_l2)))
                             if len(imgs_l2) == len(os.listdir(folder_l2)):
                                 print("PASS FIX")
                                 continue
@@ -444,6 +444,7 @@ def crawler(urlroot, path, threads, hide, clean, fix):
                                 browsers[0] = webdriver.PhantomJS(executable_path=PHANTOMJS_PATH)
                                 print("BROWSER[0]: ", browsers[0])
                                 print('ERROR')
+                        #可能仍然有未完成文件，且不会清理error.log，需要手动干预        
                         # 马上检查一遍是否有遗漏文件
                         
                         rmdir(folder_l2+os.sep+UNFINISHED)#标记已完成  
