@@ -72,7 +72,7 @@ def fetchImg(imageURLQueue, browser):
             name_jpg = os.path.basename(filename)
             threadname = threading.currentThread().name
             print(" "*30+name_jpg+" "*5+timeCurrent+" ["+threadname+"] "+" "*5+img)  
-            retry = 30
+            retry = 20
             timeset = 2
             urlImg = parseImg(URLROOT+img, browser, retry, timeset, urlImgLast)
             if urlImg == None:
@@ -355,9 +355,11 @@ def crawler(urlroot, path, threads, hide, clean, fix):
                         Error = False
                         timeLast = time.time()
                         imgs_l2 = getAllPictures(urlroot, page_l2)
+                        print(" "*20+"Images expected: ", len(imgs_l2))
                         if fix == 1:
-                            print("Images expected: ", len(imgs_l2))
-                            print("Images existed:  ", len(os.listdir(folder_l2)))
+                            print(" "*20+"Images existed:  ", len(os.listdir(folder_l2)))
+                            if os.path.exists(folder_l2+os.sep+ERRLOG):
+                                os.remove(folder_l2+os.sep+ERRLOG)
                             if len(imgs_l2) == len(os.listdir(folder_l2)):
                                 print("PASS FIX")
                                 continue
@@ -456,7 +458,7 @@ def crawler(urlroot, path, threads, hide, clean, fix):
                     rmdir(folder_l1+os.sep+UNFIXED)#标记已fix
             else:
                 if fix == 0:
-                    print('EXIST OR FINISHED')
+                    print('EXIST & FINISHED')
                 else:
                     print('FIXED')
     #回收浏览器资源

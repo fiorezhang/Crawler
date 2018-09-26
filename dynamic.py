@@ -42,6 +42,9 @@ for i in range(22):
             print(content)
             break
 
+    print("BROWSER: ", browser)
+    browser = webdriver.PhantomJS(executable_path=r'C:\Users\FioreZ\.anaconda\phantomjs-2.1.1-windows\bin\phantomjs.exe')
+    print("BROWSER: ", browser)
 
     
 browser.quit()
