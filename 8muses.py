@@ -3,6 +3,7 @@ import platform
 import urllib.request
 import re
 import os
+import sys
 import argparse
 import shutil
 import time
@@ -15,8 +16,9 @@ from PIL import ImageFile
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
 
-
+FILENAME = 100000
 UNFINISHED="00000000"
+UNFIXED="22222222"
 #ERROR = "99999999"
 ERRLOG = "99999999.log"
 DUPLOG = "77777777.log"
@@ -35,9 +37,22 @@ else:
     PATH = '/home/ftp_root/server/temp/Download_8Muses'
     PHANTOMJS_PATH = '/home/phantomjs/bin/phantomjs'
 
+class Logger(object):
+    def __init__(self, filename="Default.log"):
+        self.terminal = sys.stdout
+        self.log = open(filename, "a")
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        pass
+    
 # 417 pcs 12 threads 87s, 18 threads 62s, 24 threads 47s
 #多线程获取图片        
 def fetchImg(imageURLQueue, browser):
+    time.sleep(numpy.random.random())
     ret = True
     urlImgLast = None
     while True:
@@ -52,29 +67,36 @@ def fetchImg(imageURLQueue, browser):
             break
         #print("-------- -------- Current Thread: "+threading.currentThread().name+", file: "+filename)
         
-        timeCurrent = time.strftime("%H:%M:%S", time.localtime())
-        name_jpg = filename.split(os.sep)[-1]
-        threadname = threading.currentThread().name
-        print(" "*30+name_jpg+" "*5+timeCurrent+" ["+threadname+"] "+" "*5+img)  
-        retry = 20
-        timeset = 1
-        urlImg = parseImg(URLROOT+img, browser, retry, timeset, urlImgLast)
-        if urlImg == None:
-            Error = True
-            with open(folder_l2+os.sep+ERRLOG, 'a+') as f:
-                f.write(URLROOT+img+"|"+filename+"\n")
-            ret = False #TODO
-            continue
-        else:
-            urlImgLast = urlImg
-        retry = 10
-        timeset = 2
-        ret = saveImg("https:"+urlImg, filename, retry, timeset)
-        if ret == False:
-            Error = True
-            with open(folder_l2+os.sep+ERRLOG, 'a+') as f:
-                f.write(URLROOT+img+"|"+filename+"\n")
-            ret = False #TODO           
+        try:
+            timeCurrent = time.strftime("%H:%M:%S", time.localtime())
+            name_jpg = os.path.basename(filename)
+            threadname = threading.currentThread().name
+            print(" "*30+name_jpg+" "*5+timeCurrent+" ["+threadname+"] "+" "*5+img)  
+            retry = 30
+            timeset = 2
+            urlImg = parseImg(URLROOT+img, browser, retry, timeset, urlImgLast)
+            if urlImg == None:
+                Error = True
+                with open(os.path.dirname(filename)+os.sep+ERRLOG, 'a+') as f:
+                    f.write(URLROOT+img+"|"+filename+"\n")
+                ret = False #TODO
+                continue
+            else:
+                urlImgLast = urlImg
+            retry = 10
+            timeset = 2
+            ret = saveImg("https:"+urlImg, filename, retry, timeset)
+            if ret == False:
+                Error = True
+                with open(os.path.dirname(filename)+os.sep+ERRLOG, 'a+') as f:
+                    f.write(URLROOT+img+"|"+filename+"\n")
+                ret = False #TODO           
+                continue
+        except Exception as e:
+            print(e)
+            with open(os.path.dirname(filename)+os.sep+ERRLOG, 'a+') as f:
+                    f.write(URLROOT+img+"|"+filename+"\n")
+            ret = False
             continue
             
     #print("-------- -------- End Thread: "+threading.currentThread().name+" with: ", ret)
@@ -269,6 +291,10 @@ def getAllPictures(urlroot, page):
     
 #爬虫入口
 def crawler(urlroot, path, threads, hide, clean, fix):
+    timeCurrent = time.strftime("%H-%M-%S", time.localtime())
+    sys.stdout = Logger("./8m_"+timeCurrent+".log")
+    print("LOG RELOCATED") # this is should be saved in yourlogfilename.txt
+
     #创建当前分类的目录
     mkdir(path)
     #删除未完成目录
@@ -315,7 +341,7 @@ def crawler(urlroot, path, threads, hide, clean, fix):
             name_l1 = page_l1[len(str_l1):]
             print(" "*10+name_l1)
             folder_l1 = path+os.sep+validateTitle(name_l1)
-            if (fix != 1 and mkdir(folder_l1)) or os.path.exists(folder_l1+os.sep+UNFINISHED):
+            if (fix == 0 and (mkdir(folder_l1) or os.path.exists(folder_l1+os.sep+UNFINISHED))) or (fix == 1 and os.path.exists(folder_l1+os.sep+UNFIXED)): #fix模式下，仅仅查看存在的一级目录
                 mkdir(folder_l1+os.sep+UNFINISHED)
                 pages_l2 = getAlbums(urlroot+page_l1) #取得第二层，每一个漫画册
                 for page_l2 in pages_l2:
@@ -325,19 +351,30 @@ def crawler(urlroot, path, threads, hide, clean, fix):
                     print(" "*20+name_l2)
                     folder_l2 = path+os.sep+validateTitle(name_l1)+os.sep+validateTitle(name_l2)
                     ret = mkdir(folder_l2)
-                    if (ret == True and fix == 0) or (ret == False and fix == 1):
+                    if (fix == 0 and ret == True) or (fix == 1 and ret == False and not os.path.exists(folder_l2+os.sep+UNFINISHED)): #fix模式只遍历已经创建的二级目录，这和普通模式正好相反--只创建不存在的二级目录
                         Error = False
-                        mkdir(folder_l2+os.sep+UNFINISHED)
-                        imgs_l2 = getAllPictures(urlroot, page_l2)
-                        i = 1000 #用作图片文件名   
                         timeLast = time.time()
+                        imgs_l2 = getAllPictures(urlroot, page_l2)
+                        if fix == 1:
+                            print("Images expected: ", len(imgs_l2))
+                            print("Images existed:  ", len(os.listdir(folder_l2)))
+                            if len(imgs_l2) == len(os.listdir(folder_l2)):
+                                print("PASS FIX")
+                                continue
+                            else:
+                                print("PROBLEM FIX")
+                                for file in os.listdir(folder_l2):
+                                    os.remove(folder_l2+os.sep+file)
+                        mkdir(folder_l2+os.sep+UNFINISHED)
+                        i = FILENAME #用作图片文件名   
+                        #timeLast = time.time()
                         urlImgLast = None
                         urlQueue = queue.Queue() #多线程时使用，单线程用不上
                         for img in imgs_l2:
                             i = i+1
                             name_jpg = str(i)+'.jpg'
-                            if fix == 1 and os.path.exists(folder_l2+os.sep+name_jpg):
-                                continue
+                            #if fix == 1 and os.path.exists(folder_l2+os.sep+name_jpg): #fix模式下，跳过已经存在的文件
+                            #    continue
                             if threads > 1: #多线程，图片信息保存
                                 urlpair = [img, folder_l2+os.sep+name_jpg]
                                 urlQueue.put(urlpair)
@@ -372,24 +409,56 @@ def crawler(urlroot, path, threads, hide, clean, fix):
                                 t.start()
                             for t in ths:
                                 t.join()
-                            for t in ths:
+                            for i, t in enumerate(ths):
                                 if t.get_result() == False: 
+                                    print("BROWSER[%d]: "%i, browsers[i])
+                                    browsers[i] = webdriver.PhantomJS(executable_path=PHANTOMJS_PATH)
+                                    print("BROWSER[%d]: "%i, browsers[i])
                                     Error = True
                         if Error:
                             print('ERROR')
                         #    mkdir(folder_l2+os.sep+ERROR) 
                         timeUsed = time.time()-timeLast
                         print('USED TIME: '+str(round(timeUsed, 2)))
+                        
+                        # 马上检查一遍是否有遗漏文件
+                        files = os.listdir(folder_l2)
+                        files.sort(key= lambda x:int(x[:-4]))
+                        if len(files) - 1 != int(files[-1].split('.')[0]) - FILENAME: #去掉未完成标记-1
+                            print('HOTFIX')
+                            urlQueue = queue.Queue() 
+                            i = FILENAME #用作图片文件名   
+                            for img in imgs_l2:
+                                i = i+1
+                                name_jpg = str(i)+'.jpg'
+                                if os.path.exists(folder_l2+os.sep+name_jpg): #fix模式下，跳过已经存在的文件
+                                    continue
+                                urlpair = [img, folder_l2+os.sep+name_jpg]
+                                urlQueue.put(urlpair)    
+                                print(" "*30+name_jpg)
+                            browser = browsers[0]
+                            if fetchImg(urlQueue, browser) == False:
+                                print("BROWSER[0]: ", browsers[0])
+                                browsers[0] = webdriver.PhantomJS(executable_path=PHANTOMJS_PATH)
+                                print("BROWSER[0]: ", browsers[0])
+                                print('ERROR')
+                        # 马上检查一遍是否有遗漏文件
+                        
                         rmdir(folder_l2+os.sep+UNFINISHED)#标记已完成  
-                    elif ret == False:
+                    elif ret == False: #fix == 0
                         print('EXIST')
-                    else:
+                    else: #删除fix模式下创建的空目录
                         rmdir(folder_l2)
-                        print('IGNORE')
-                if fix != 1:
-                    rmdir(folder_l1+os.sep+UNFINISHED)#标记已完成         
+                        print('IGNORE IN FIX')
+                if fix == 0: #在fix模式下，不移除一级目录的完成标志，因为未建立的二级目录被跳过去了。
+                    rmdir(folder_l1+os.sep+UNFINISHED)#标记已完成      
+                else:
+                    rmdir(folder_l1+os.sep+UNFIXED)#标记已fix
             else:
-                print('EXIST')
+                if fix == 0:
+                    print('EXIST OR FINISHED')
+                else:
+                    print('FIXED')
     #回收浏览器资源
     for i in range(threads):
         browsers[i].quit()
@@ -465,23 +534,61 @@ def clearduplicate():
                                         with open(path+os.sep+dirc+os.sep+filec+os.sep+DUPLOG, 'a+') as f:
                                             f.write(fileLast+" "*10+filec_2+"\n")
 
-def test(path):
+def checkmiss():
+    path = PATH
+    if os.path.exists(path):
+        dirs = os.listdir(path)
+        for dirc in dirs:
+            test2(dirc)
+                                            
+def test1(path):
     if path != "":
-        imgs = getAllPictures(URLROOT, path)
+        imgs = getAllPictures(URLROOT, "/comics/album/"+path)
         for img in imgs:
             print(img)
     else:
         print("EMPTY PATH")
         
+def test2(dir):
+    for sub in os.listdir(PATH+os.sep+dir): #得到二级目录
+        if sub == UNFINISHED or sub == UNFIXED: 
+            continue
+        files = os.listdir(PATH+os.sep+dir+os.sep+sub)
+        files.sort(key= lambda x:int(x[:-4]))
+        if len(files) != int(files[-1].split('.')[0]) - FILENAME:
+            print(dir+'/'+sub)
+            mkdir(PATH+os.sep+dir+os.sep+UNFIXED)
+
+def test3(path, dir):
+    browser = webdriver.PhantomJS(executable_path=PHANTOMJS_PATH)
+    browser.set_page_load_timeout(30) # 最大等待时间
+
+    imgs = getAllPictures(URLROOT, "/comics/album/"+path)
+    urlQueue = queue.Queue() 
+    i = FILENAME #用作图片文件名   
+    for img in imgs:
+        i = i+1
+        name_jpg = str(i)+'.jpg'
+        if os.path.exists(PATH+os.sep+dir+os.sep+name_jpg): #fix模式下，跳过已经存在的文件
+            continue
+        urlpair = [img, PATH+os.sep+dir+os.sep+name_jpg]
+        urlQueue.put(urlpair)    
+        #print(name_jpg)
+    fetchImg(urlQueue, browser)    
+    browser.quit()
+            
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--threads", type=int, default=1)
     parser.add_argument("--hide", type=int, default=1)
     parser.add_argument("--clean", type=int, default=0)
     parser.add_argument("--fix", type=int, default=0)
-    parser.add_argument("--test", type=int, default=0)
+    parser.add_argument("--test1", type=int, default=0)
+    parser.add_argument("--test2", type=int, default=0)
+    parser.add_argument("--test3", type=int, default=0)
     parser.add_argument("--errorlog", type=str, default="")
     parser.add_argument("--cleardup", type=int, default=0)
+    parser.add_argument("--checkmiss", type=int, default=0)
     args = parser.parse_args()
     return args
     
@@ -494,17 +601,29 @@ if __name__ == "__main__":
     HIDE = args.hide
     CLEAN = args.clean
     FIX = args.fix
-    TEST = args.test
+    TEST1 = args.test1
+    TEST2 = args.test2
+    TEST3 = args.test3
     ERRORLOG = args.errorlog
     CLEARDUP = args.cleardup
+    CHECKMISS = args.checkmiss
     
-    if TEST == 1:
+    if TEST1 == 1:
         path = input("Test path: ")
-        test(path)
+        test1(path)
+    elif TEST2 == 1:
+        dir = input("Test dir: ")
+        test2(dir)        
+    elif TEST3 == 1:
+        path = input("Test path: ")
+        dir = input("Test dir: ")
+        test3(path, dir)     
     elif ERRORLOG != "":
         fixerrlog(ERRORLOG)
     elif CLEARDUP == 1:
         clearduplicate()
+    elif CHECKMISS == 1:
+        checkmiss()
     else:
         crawler(URLROOT, PATH, THREADS, HIDE, CLEAN, FIX)
 
