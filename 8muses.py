@@ -431,7 +431,8 @@ def crawler(urlroot, path, threads, hide, clean, fix):
                                 t.join()
                             for i, t in enumerate(ths):
                                 if t.get_result() == False: 
-                                    print("BROWSER[%d]: "%i, browsers[i])
+                                    print("BROWSER[%d]: "%i, browsers[i]) #关掉旧的phantomjs，换个新的
+                                    browsers[i].quit()
                                     browsers[i] = webdriver.PhantomJS(executable_path=PHANTOMJS_PATH)
                                     print("BROWSER[%d]: "%i, browsers[i])
                                     Error = True
@@ -456,7 +457,8 @@ def crawler(urlroot, path, threads, hide, clean, fix):
                                 print(" "*30+name_jpg)
                             browser = browsers[0]
                             if fetchImg(urlQueue, browser) == False:
-                                print("BROWSER[0]: ", browsers[0])
+                                print("BROWSER[0]: ", browsers[0]) #关掉旧的phantomjs，换个新的
+                                browsers[0].quit()
                                 browsers[0] = webdriver.PhantomJS(executable_path=PHANTOMJS_PATH)
                                 print("BROWSER[0]: ", browsers[0])
                                 print('ERROR')
@@ -562,14 +564,31 @@ def checkmiss():
     if os.path.exists(path):
         dirs = os.listdir(path)
         for dir in dirs:
+            if os.path.exists(PATH+os.sep+dir+os.sep+UNFINISHED):
+                continue
             for sub in os.listdir(PATH+os.sep+dir): #得到二级目录
                 if sub == UNFINISHED or sub == UNFIXED: 
                     continue
+                if os.path.exists(PATH+os.sep+dir+os.sep+sub+os.sep+UNFINISHED):
+                    continue
                 files = os.listdir(PATH+os.sep+dir+os.sep+sub)
                 files.sort(key= lambda x:int(x[:-4]))
-                if len(files) == 0 or len(files) != int(files[-1].split('.')[0]) - FILENAME:
+                file_num = len(files)
+                if os.path.exists(PATH+os.sep+dir+os.sep+sub+os.sep+ERRLOG):
+                    file_num -= 1
+                    if file_num > 0:
+                        file_last = files[-2]
+                else:
+                    if file_num > 0:
+                        file_last = files[-1]
+                
+                if file_num == 0 or file_num != int(file_last.split('.')[0]) - FILENAME:
                     print("MARK UNFIXED"+" "*10+dir+'/'+sub)
                     mkdir(PATH+os.sep+dir+os.sep+UNFIXED)
+                else:
+                    if os.path.exists(PATH+os.sep+dir+os.sep+sub+os.sep+ERRLOG):
+                        print("CLEAR ERROR LOG"+" "*10+dir+'/'+sub)
+                        os.remove(PATH+os.sep+dir+os.sep+sub+os.sep+ERRLOG)
                                             
 def test1(path):
     if path != "":
