@@ -366,8 +366,9 @@ if __name__ == "__main__":
               'older-women',                                        #49
               'actiongirls',                                        #50
               'jordan-carver',                                      #51
-              'cosplay',
-              'gravure-idols',
+              'erotic',                                             #52
+              'cosplay',                                            #53
+              'gravure-idols',                                      #54
               
               'videos',
               'download/hentai-anime-download',

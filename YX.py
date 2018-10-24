@@ -13,7 +13,7 @@ HEADER={'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (K
 #PROXIE = {'http':'http://221.0.232.13:61202','https':'https://211.86.50.105:61202'}
 TIMEOUT = 20
 
-URLROOT = 'https://52zfls.com'
+URLROOT = 'https://652ll.com/' #https://961.one
 URLSUB = [
           '', 
           'youfanhao',      #1
@@ -230,6 +230,7 @@ def getAllPages(url):
             #获取当前页面所有主题
             request = urllib.request.Request(url, headers=HEADER)
             response = urllib.request.urlopen(request).read().decode('gbk')
+            #response = urllib.request.urlopen(request, timeout=TIMEOUT).read().decode('gbk')
             #print(response)
             
             #<li class='next-page'><a target="_blank" href='list_16_2.html'>下一页</a></li>
@@ -249,6 +250,7 @@ def getAllPages(url):
         except Exception as e:
             #print(e)
             break
+        #print(url_list)
     return url_list
     
 
@@ -311,9 +313,9 @@ def crawler(urlroot, url, path, threads, hide, clean):
                                 pass
         else:
             print("Dir not exists")    
-                
+                           
     #获取当前分类下所有页面URL
-    classPages = getAllPages(url)
+    classPages = getAllPages(url) 
     #print(classPages)  
     if classPages:
         #获取当前分类所有页面的下级信息
