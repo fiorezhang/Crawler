@@ -24,6 +24,7 @@ def saveImg(imageURL,fileName):
         f = open(fileName, 'wb')
         f.write(data)
         f.close()
+        u.close()
         return True
     except urllib.error.URLError as e:
         print('==== TIMEOUT ====    '+imageURL)
@@ -141,16 +142,16 @@ def getPage(url, num):
     try:
         #获取当前页面所有主题
         request = urllib.request.Request(urlPage, headers=HEADER)
-        response = urllib.request.urlopen(request).read().decode('gbk', 'ignore')
+        response = urllib.request.urlopen(request, timeout=TIMEOUT).read().decode('gbk', 'ignore')
         #print(response)
         
         #剥离其它部分，仅保留相关列表
-        pattern = re.compile('<dl class="list20">(.*?)</dl>', re.S)
+        pattern = re.compile('<div id="colList"(.*?)</div>', re.S)
         content = re.search(pattern, response).group(0)
         #print(content)
 
         #逐个提取主题
-        pattern = re.compile('<dd><a href="(.*?)".*?<span>(.*?)</span><h2>(.*?)</h2>.*?')
+        pattern = re.compile('<li><a href="(.*?)".*?<span>(.*?)</span><h2>(.*?)</h2>.*?')
         items = re.findall(pattern, content)#item[0]本地页面地址，需加上urlroot这个网站地址前缀，item[1]发布日期，item[2]标题
         #for item in items:
         #    print(item[0], item[1], item[2])
@@ -177,6 +178,8 @@ def getImg(url):
         #print(content)
     
         content = re.sub('<br>|<br.*?/>', '\n', content)
+        content = re.sub('>', '>\n', content) #每张图片分一行，避免跨行查找图片url在jpg，png混合图片时出错
+
         pattern = re.compile('(?i)<img.*?src="(http.*?jpg|http.*?png|http.*?jpeg)".*?>')
         items = re.findall(pattern, content)#item图片地址，绝对地址
         #print(items)
@@ -254,7 +257,7 @@ def crawler(urlroot, url, start, end, path, magnet, threads, hide, clean):
             print("dir not exists")    
     
     SLEEP_CNT = 10 #重试次数
-    SLEEP_LNG = 120 #秒
+    SLEEP_LNG = 31 #秒
     #遍历指定页面
     assert(start >= 1 and start <= end)
     for i in range(start-1, end):
@@ -404,8 +407,8 @@ if __name__ == "__main__":
         print("%4d -- %s" % (idx, item))
     assert(args.index < len(URLSUB))
     
-    URLROOT = 'http://www.sdm9.com/'
-    URLCRAWLER = 'http://www.sdm9.com/tupian/'+URLSUB[args.index]+'/'
+    URLROOT = 'http://sedama1.com'
+    URLCRAWLER = 'http://sedama1.com/tupian/'+URLSUB[args.index]+'/'
     PATH = 'F:/2017/TMP/Download_SDM_'+URLSUB[args.index]
     START = args.start
     END = args.end

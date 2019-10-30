@@ -16,7 +16,7 @@ TIMEOUT = 20
 
 URLROOT = 'http://www.73wxw.com'
 PATH = 'F:/2017/TMP/Download_WXW'
-SESSION_MAX = 600
+SESSION_MAX = 1000
 
 def saveContent(content, fileName):
     with open(fileName, "a+") as f:

@@ -9,11 +9,15 @@ import numpy
 import threading
 import queue
 
-HEADER={'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/34.0.1847.137 Safari/537.36 LBBROWSER'}  
+import urllib.request
+from io import BytesIO
+import gzip
+
+HEADER={'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/14.0.835.163 Safari/535.1'}  
 #PROXIE = {'http':'http://221.0.232.13:61202','https':'https://211.86.50.105:61202'}
 TIMEOUT = 20
 
-URLROOT = 'https://652ll.com/' #https://961.one
+URLROOT = 'https://qcaj552.com' #https://dz.zhaifulifabu.com:9527/
 URLSUB = [
           '', 
           'youfanhao',      #1
@@ -112,6 +116,20 @@ def saveComment(comment, rate, fileName):
         print(e)
         return False        
 
+def decodeResponse(response):
+    #print(response)
+    
+    #有段时间网页用zip加密了，需要解密
+    if 1:
+        ret = response.decode('gbk')
+    else:
+        buff = BytesIO(response)
+        f = gzip.GzipFile(fileobj=buff)
+        ret = f.read().decode('gbk')
+
+    #print(ret)
+    return ret
+
 #保存文件时候, 去除名字中的非法字符
 def validateTitle(title):
     rstr = r"[\/\\\:\*\?\"\<\>\|]"  # '/ \ : * ? " < > |'
@@ -145,8 +163,9 @@ def rmdir(path):
 def getComment(url):
     try: 
         request = urllib.request.Request(url, headers=HEADER)
-        response = urllib.request.urlopen(request, timeout=TIMEOUT).read().decode('gbk')
+        response = urllib.request.urlopen(request).read()
         #print(response)
+        response = decodeResponse(response)
     
         pattern = re.compile('<article class="article-content">(.*?)</article>', re.S)
         content = re.search(pattern, response).group(1)
@@ -192,8 +211,9 @@ def getPage(urlPage):
         #print(urlPage)
         #获取当前页面所有主题
         request = urllib.request.Request(urlPage, headers=HEADER)
-        response = urllib.request.urlopen(request).read().decode('gbk')
+        response = urllib.request.urlopen(request).read()
         #print(response)
+        response = decodeResponse(response)
         
         #剥离其它部分，仅保留相关列表
         #<div class="content-wrap">
@@ -229,9 +249,9 @@ def getAllPages(url):
         try:
             #获取当前页面所有主题
             request = urllib.request.Request(url, headers=HEADER)
-            response = urllib.request.urlopen(request).read().decode('gbk')
-            #response = urllib.request.urlopen(request, timeout=TIMEOUT).read().decode('gbk')
+            response = urllib.request.urlopen(request).read()
             #print(response)
+            response = decodeResponse(response)
             
             #<li class='next-page'><a target="_blank" href='list_16_2.html'>下一页</a></li>
             pattern = re.compile('(?i)<li class=.*?next-page.*?href=.(.*?.html).*?</li>', re.S)
@@ -258,8 +278,9 @@ def getAllPages(url):
 def getImg(url):
     try: 
         request = urllib.request.Request(url, headers=HEADER)
-        response = urllib.request.urlopen(request, timeout=TIMEOUT).read().decode('gbk')
+        response = urllib.request.urlopen(request).read()
         #print(response)
+        response = decodeResponse(response)
     
         pattern = re.compile('<article class="article-content">(.*?)</article>', re.S)
         content = re.search(pattern, response).group(1)

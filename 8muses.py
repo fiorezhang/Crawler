@@ -23,7 +23,12 @@ UNFIXED="22222222"
 ERRLOG = "99999999.log"
 DUPLOG = "77777777.log"
 
-HEADER={'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/34.0.1847.137 Safari/537.36 LBBROWSER'}  
+HEADER = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.64 Safari/537.11',
+       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+       'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
+       'Accept-Encoding': 'none',
+       'Accept-Language': 'en-US,en;q=0.8',
+       'Connection': 'keep-alive'}
 #PROXIE = {'http':'http://221.0.232.13:61202','https':'https://211.86.50.105:61202'}
 TIMEOUT = 10
 
@@ -167,6 +172,7 @@ def saveImg(imageURL, fileName, retry, timeset):
             r = urllib.request.Request(imageURL, headers=HEADER)
             u = urllib.request.urlopen(r, timeout=timeset)
             data = u.read()
+            u.close()
             f = open(fileName, 'wb')
             f.write(data)
             f.close()
@@ -220,7 +226,9 @@ def getAlbums(url):
             #获取当前页面所有主题
             #print("[P] "+url+'/'+str(page))
             request = urllib.request.Request(url+'/'+str(page), headers=HEADER)
-            response = urllib.request.urlopen(request, timeout=3).read().decode('utf-8', 'ignore')
+            handle = urllib.request.urlopen(request, timeout=3)
+            response = handle.read().decode('utf-8', 'ignore')
+            handle.close()
             #print(response)
             
             pattern = re.compile('<a class="c-tile t-hover" href="(.*?/album/.*?)">')
@@ -250,7 +258,9 @@ def getPictures(url):
             #获取当前页面所有主题
             #print("[I] "+url+'/'+str(page))
             request = urllib.request.Request(url, headers=HEADER)
-            response = urllib.request.urlopen(request, timeout=3).read().decode('utf-8', 'ignore')
+            handle = urllib.request.urlopen(request, timeout=3)
+            response = handle.read().decode('utf-8', 'ignore')
+            handle.close()
             #print(response)
             
             pattern = re.compile('<a class="c-tile t-hover" href="(.*?/picture/.*?)">')
@@ -331,6 +341,7 @@ def crawler(urlroot, path, threads, hide, clean, fix):
         browsers[i].set_page_load_timeout(30) # 最大等待时间
     print("BROWSERS READY")    
 
+    #检查缺失部分
     if fix == 1:
         checkmiss()
     

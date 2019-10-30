@@ -421,8 +421,8 @@ def get_args():
 ###### Main ######
 if __name__ == "__main__":
     args = get_args()
-    URLROOT = 'http://www.ganyiye.space'
-    URLCRAWLER = 'http://www.ganyiye.space/article-list-id-'+str(args.index)+'.html'
+    URLROOT = 'http://www.xxb90.com'
+    URLCRAWLER = 'http://www.xxb90.com/article-list-id-'+str(args.index)+'.html'
     PATH = 'F:/2017/TMP/Download_EPP_'+str(args.index)
     START = args.start
     END = args.end
