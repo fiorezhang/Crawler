@@ -14,13 +14,17 @@ import ssl
 ssl._create_default_https_context = ssl._create_unverified_context
 
 HEADER={'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/34.0.1847.137 Safari/537.36 LBBROWSER'}  
+HEADER_REFER={'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/34.0.1847.137 Safari/537.36 LBBROWSER', 'Referer': 'http://ganyiye.space'}  
 #PROXIE = {'http':'http://221.0.232.13:61202','https':'https://211.86.50.105:61202'}
-TIMEOUT = 5
+TIMEOUT = 6
 
 
 
 #传入图片地址，文件名，保存单张图片
 def saveImg(imageURL,fileName,timeSet=0):
+    ret = False
+    error_1 = None
+    error_2 = None
     if timeSet == 0:
         timeSet = TIMEOUT
     try: 
@@ -30,15 +34,31 @@ def saveImg(imageURL,fileName,timeSet=0):
         f = open(fileName, 'wb')
         f.write(data)
         f.close()
-        return True
-    #except urllib.error.URLError as e:
-    #    print('==== TIMEOUT ====    '+str(timeSet)+'    ====    '+imageURL)
-    #    print(e.reason)
-    #    return False
+        ret = True
+        return ret
     except Exception as e:
-        print('==== UNKNOWN ====    '+str(timeSet)+'    ====    '+imageURL)
-        print(e)
-        return False
+        #print('==== UNKNOWN ====    '+str(timeSet)+'    ====    '+imageURL)
+        #print(e)
+        error_1 = e
+        
+    try: 
+        r = urllib.request.Request(imageURL, headers=HEADER_REFER)
+        u = urllib.request.urlopen(r, timeout=timeSet)
+        data = u.read()
+        f = open(fileName, 'wb')
+        f.write(data)
+        f.close()
+        ret = True
+        return ret
+    except Exception as e:
+        #print('==== UNKNOWN_REFERER ====    '+str(timeSet)+'    ====    '+imageURL)
+        #print(e)
+        error_2 = e
+      
+    print('==== UNKNOWN ====    '+str(timeSet)+'    ====    '+imageURL)
+    print(error_1, error_2)      
+    return ret
+    
 
 #多线程获取image    
 def fetchImg(imageURLQueue):
@@ -55,10 +75,10 @@ def fetchImg(imageURLQueue):
             #print(e)
             break
         #print("-------- -------- Current Thread: "+threading.currentThread().name+", file: "+filename)
-        retry = 5
+        retry = 2
         timeset = 2
         while saveImg(url, filename, timeset) == False and retry>0:
-            time.sleep(1)
+            #time.sleep(1)
             retry=retry-1
             timeset = timeset*2
         if retry==0:
@@ -111,10 +131,29 @@ def saveFlag(content, fileName):
 
 #保存文件时候, 去除名字中的非法字符
 def validateTitle(title):
-    rstr = r"[\/\\\:\*\?\"\<\>\|]"  # '/ \ : * ? " < > |'
+    rstr = r"[\/\\\:\*\?\"\<\>\|.]"  # '/ \ : * ? " < > |'
 #    rstr = r"[\*\?\"\<\>\|]"  # '/ \ : * ? " < > |'
     new_title = re.sub(rstr, r"_", title)  # 替换为下划线
     return new_title
+     
+#去掉文件或目录尾部的[xxp]字样
+def normalizeTitle(title):
+    #abc[xyz] -> abc
+    if title[-1] == ']' and (title[-2] == 'p' or title[-2] == 'P'):
+        bracketLeft = title.rfind('[')
+        if bracketLeft > 0:
+            title = title[:bracketLeft]
+    #abc【xyz】 -> abc    
+    if title[-1] == '】' and (title[-2] == 'p' or title[-2] == 'P'):
+        bracketLeft = title.rfind('【')
+        if bracketLeft > 0:
+            title = title[:bracketLeft]
+    #abc［xyz］ -> abc    
+    if title[-1] == '］' and (title[-2] == 'p' or title[-2] == 'P'):
+        bracketLeft = title.rfind('［')
+        if bracketLeft > 0:
+            title = title[:bracketLeft]
+    return title.rstrip()
      
 #创建新目录
 def mkdir(path):
@@ -283,8 +322,8 @@ def crawler(urlroot, url, start, end, path, magnet, gif, content, threads, hide,
                     urlId = urlroot+item[0]
                     #folder = item[2]+' '+item[1]
                     folder = item[1]
-                    folder = validateTitle(folder)
-                    name = validateTitle(item[1])
+                    folder = normalizeTitle(validateTitle(folder))
+                    name = normalizeTitle(validateTitle(item[1]))
                     #打印当前要下载的链接信息
                     if hide == 1:
                         print('-'*20+urlId)
@@ -400,7 +439,7 @@ def crawler(urlroot, url, start, end, path, magnet, gif, content, threads, hide,
                 retry = retry-1
                 print("==== SLEEP ", retry, " ====")
                 time.sleep(SLEEP_LNG * (SLEEP_CNT-retry))
-        time.sleep(10) #每页休息一下
+        time.sleep(1) #每页休息一下
 
         
 def get_args():
@@ -418,12 +457,14 @@ def get_args():
     args = parser.parse_args()
     return args
     
+className = {"12":"dongmankatong", "41":"guochanwuma", "8":"oumeisetu", "40":"oumeiwuma", "6":"wangyouzipai", "7":"yazhoutupian", "38":"yazhouwuma", "9":"weimei", "10":"weimei", "11":"shunvluanlun"}
+    
 ###### Main ######
 if __name__ == "__main__":
     args = get_args()
     URLROOT = 'http://www.ganyiye.space'
     URLCRAWLER = 'http://www.ganyiye.space/article-list-id-'+str(args.index)+'.html'
-    PATH = 'F:/2017/TMP/Download_EPP_'+str(args.index)
+    PATH = 'D:/2017/TMP/Download_EPP_'+className[str(args.index)]
     START = args.start
     END = args.end
     MAGNET = args.magnet

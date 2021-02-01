@@ -17,7 +17,7 @@ HEADER={'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.1 (KH
 #PROXIE = {'http':'http://221.0.232.13:61202','https':'https://211.86.50.105:61202'}
 TIMEOUT = 20
 
-URLROOT = 'https://qcaj552.com' #https://dz.zhaifulifabu.com:9527/
+URLROOT = 'https://qqyf66.com/' #https://dz.zhaifulifabu.com:9527/
 URLSUB = [
           '', 
           'youfanhao',      #1
@@ -478,7 +478,7 @@ if __name__ == "__main__":
         print("%4d -- %s" % (idx, item))
     assert(args.index < len(URLSUB))
     
-    PATH = 'F:/2017/TMP/Download_YX_'+URLSUB[args.index]
+    PATH = 'D:/2017/TMP/Download_YX_'+URLSUB[args.index]
     if args.index == 0:
         URLCRAWLER = URLROOT+'/page/1.html'
     else:
@@ -487,14 +487,14 @@ if __name__ == "__main__":
     HIDE = args.hide
     CLEAN = args.clean
     URLSPIDER = args.url
-    PATHSPIDER = 'F:/2017/TMP/Download_YX_'+URLSUB[args.index]+'/'+args.folder
+    PATHSPIDER = 'D:/2017/TMP/Download_YX_'+URLSUB[args.index]+'/'+args.folder
     if args.spider == 0:
         crawler(URLROOT, URLCRAWLER, PATH, THREADS, HIDE, CLEAN)
     else:
         spider(URLROOT, URLSPIDER, PATHSPIDER, THREADS, HIDE, CLEAN)
 
     try:
-        rmdir('F:/2017/TMP/Download_YX_')
+        rmdir('D:/2017/TMP/Download_YX_')
     except Exception as e:
         pass
 

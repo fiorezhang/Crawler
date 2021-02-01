@@ -1,0 +1,1 @@
+python .\Nya.py --start 100000 --end 400000 --clean 0 --thread 24 --lang 1 --flagretry 0 --updateonly 1
